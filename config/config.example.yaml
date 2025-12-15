@@ -1,0 +1,75 @@
+# LLM Workflow Orchestration Configuration
+
+# Vector Database Configuration
+vector_db:
+  type: chromadb  # Options: chromadb, faiss, pinecone, qdrant
+  collection_name: llm_workflows
+  persist_directory: ./data/vector_db
+  host: localhost
+  port: 6333
+  dimension: 768
+  metric: cosine  # Options: cosine, euclidean, dot
+
+# LLM Configuration
+llm:
+  provider: openai  # Options: openai, anthropic, cohere
+  model_name: gpt-3.5-turbo
+  temperature: 0.7
+  max_tokens: 2000
+  timeout: 30
+
+# Agent Configurations
+agents:
+  research_agent:
+    role: analyzer
+    system_prompt: |
+      You are a research assistant specialized in analyzing and synthesizing information.
+      Provide comprehensive, well-structured responses based on available data.
+    llm_config:
+      temperature: 0.5
+      max_tokens: 3000
+
+  creative_agent:
+    role: generator
+    system_prompt: |
+      You are a creative content generator.
+      Generate engaging, original content based on user requests.
+    llm_config:
+      temperature: 0.9
+      max_tokens: 2000
+
+  summarizer_agent:
+    role: summarizer
+    system_prompt: |
+      You are an expert at creating concise, accurate summaries.
+      Extract key points and present them clearly.
+    llm_config:
+      temperature: 0.3
+      max_tokens: 1000
+
+# Workflow Configurations
+workflows:
+  rag_workflow:
+    type: rag  # Retrieval-Augmented Generation
+    agents:
+      - retrieval_agent
+      - creative_agent
+    max_iterations: 1
+
+  analysis_workflow:
+    type: sequential
+    agents:
+      - research_agent
+      - summarizer_agent
+    max_iterations: 5
+
+  parallel_generation:
+    type: parallel
+    agents:
+      - creative_agent
+      - research_agent
+    max_iterations: 1
+
+# Logging Configuration
+logging_level: INFO  # Options: DEBUG, INFO, WARNING, ERROR
+log_file: logs/llm_workflow.log
