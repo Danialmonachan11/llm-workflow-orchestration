@@ -115,14 +115,19 @@ class TestBaseAgent:
 class TestLLMAgent:
     """Test LLM Agent functionality."""
 
-    @patch('openai.ChatCompletion.create')
-    async def test_llm_agent_process(self, mock_openai):
-        """Test LLM agent processing a message."""
-        # Mock OpenAI response
+    @patch('langchain_openai.ChatOpenAI.ainvoke', new_callable=AsyncMock)
+    async def test_llm_agent_process(self, mock_ainvoke):
+        """Test LLM agent processing a message.
+
+        Patches ChatOpenAI.ainvoke directly (the actual async call
+        LLMAgent.process makes via LangChain) rather than the pre-1.0
+        openai.ChatCompletion.create shim, which this v1-client-based
+        code never calls -- the old mock target had no effect and this
+        test was silently making a real (failing) network call before.
+        """
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "Test response"
-        mock_openai.return_value = mock_response
+        mock_response.content = "Test response"
+        mock_ainvoke.return_value = mock_response
 
         config = AgentConfig(
             name="test_llm",

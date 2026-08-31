@@ -3,7 +3,13 @@
 from .base_agent import BaseAgent, AgentConfig, AgentRole, AgentMessage, AgentResponse
 from .llm_agent import LLMAgent
 from .retrieval_agent import RetrievalAgent
-from .orchestrator import AgentOrchestrator, WorkflowConfig
+from .orchestrator import (
+    AgentOrchestrator,
+    WorkflowConfig,
+    WorkflowStep,
+    WorkflowType,
+    WorkflowResult,
+)
 
 __all__ = [
     "BaseAgent",
@@ -15,4 +21,7 @@ __all__ = [
     "RetrievalAgent",
     "AgentOrchestrator",
     "WorkflowConfig",
+    "WorkflowStep",
+    "WorkflowType",
+    "WorkflowResult",
 ]

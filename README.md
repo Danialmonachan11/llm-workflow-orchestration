@@ -5,11 +5,15 @@ A powerful framework for building and orchestrating Agentic LLM workflows with v
 
 ## Features
 
-- **Multi-Agent Orchestration**: Coordinate multiple LLM agents with different roles and capabilities
+- **Multi-Agent Orchestration**: LangGraph-backed `StateGraph` execution engine (sequential chain, parallel fan-out/fan-in, and a retrieve->generate RAG graph) behind one `AgentOrchestrator` interface
+- **LangChain LLM clients**: `LLMAgent` uses LangChain's `ChatOpenAI` / `ChatAnthropic` / `ChatCohere` wrappers (OpenAI-compatible endpoints, including OpenRouter, work via `base_url`)
+- **Hybrid retrieval**: dense vector search fused with BM25 keyword search via Reciprocal Rank Fusion, plus optional dual-backend combination (query Chroma and Qdrant together, not as alternatives)
+- **Cross-encoder reranking**: fused candidates reordered by a `sentence-transformers` cross-encoder before the final top-k is returned
+- **RAGAS evaluation**: `src/evaluation/ragas_eval.py` scores the real RAG pipeline (faithfulness, answer relevancy, context precision/recall) against a golden question set
+- **FastAPI service**: `src/api/app.py` exposes `/query` and `/workflows/{type}/execute` with Pydantic request/response schemas
+- **Docker packaging**: `Dockerfile` + `docker-compose.yml` (app + Qdrant) for reproducible deployment
 - **Vector Database Integration**: Support for ChromaDB, FAISS, Pinecone, and Qdrant
-- **Flexible Workflows**: Sequential, parallel, and RAG (Retrieval-Augmented Generation) workflows
-- **Langflow Integration**: Custom components for visual workflow building
-- **Multiple LLM Providers**: OpenAI, Anthropic, and Cohere support
+- **Langflow Integration**: Custom components for visual workflow building (a separate, unrelated project to LangGraph — see the Langflow Integration section below)
 - **Configuration Management**: YAML/JSON configuration with environment variable overrides
 - **Production-Ready**: Comprehensive logging, error handling, and async support
 
@@ -235,6 +239,14 @@ python examples/multi_agent_example.py
 
 ## Langflow Integration
 
+**Note on naming:** Langflow (below) and LangGraph (the orchestration
+engine in `src/agents/orchestrator.py`) are two different, unrelated
+projects from the LangChain ecosystem -- Langflow is a visual drag-and-drop
+flow builder; LangGraph is the state-graph library that actually executes
+every workflow in this repo. This section is about the former; the
+orchestrator's real execution engine is documented under "Workflow Types"
+below.
+
 This project includes custom Langflow components for visual workflow building:
 
 1. **VectorDBComponent**: Store and retrieve documents
@@ -367,7 +379,7 @@ MIT License - see LICENSE file for details
 
 ## Acknowledgments
 
-- Built with LangChain, Transformers, and modern LLM APIs
+- Built with LangChain, LangGraph, RAGAS, FastAPI, Transformers, and modern LLM APIs
 - Inspired by agent-based architectures and RAG patterns
 - Vector database integrations for efficient retrieval
 

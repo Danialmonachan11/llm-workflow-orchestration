@@ -4,6 +4,13 @@ torch>=2.0.0
 langchain>=0.1.0
 langflow>=0.6.0
 
+# Agent orchestration (LangGraph state-graph execution engine, distinct
+# from the langflow visual-builder integration above -- see README)
+langgraph>=1.2.11
+langchain-openai>=1.6.0
+langchain-anthropic>=1.4.8
+langchain-cohere>=0.5.1
+
 # Vector Database Support
 chromadb>=0.4.0
 faiss-cpu>=1.7.4
@@ -16,10 +23,17 @@ openai>=1.0.0
 anthropic>=0.7.0
 cohere>=4.0.0
 
+# Retrieval quality: hybrid (dense + sparse) search and reranking
+rank-bm25>=0.2.2
+
 # Text Processing
 sentence-transformers>=2.2.0
 tiktoken>=0.5.0
 langchain-community>=0.0.10
+
+# Evaluation
+ragas>=0.4.3
+datasets>=5.0.1
 
 # Data and Storage
 numpy>=1.24.0
@@ -40,5 +54,6 @@ tenacity>=8.2.0
 
 # Development
 pytest>=7.4.0
+pytest-asyncio>=0.23.0
 black>=23.0.0
 ruff>=0.1.0

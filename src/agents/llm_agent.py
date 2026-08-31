@@ -1,22 +1,24 @@
-"""LLM Agent implementation using various LLM providers."""
+"""LLM Agent implementation using various LLM providers via LangChain."""
 
 from typing import Dict, Any, Optional, List
-from openai import OpenAI
-from anthropic import Anthropic
-import cohere
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_cohere import ChatCohere
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from loguru import logger
 
 from .base_agent import BaseAgent, AgentConfig, AgentMessage, AgentResponse
 
 
 class LLMAgent(BaseAgent):
-    """Agent that uses LLMs for processing."""
+    """Agent that uses LangChain chat models for processing."""
 
     def __init__(
         self,
         config: AgentConfig,
         api_key: str = "",
-        provider: str = "openai"
+        provider: str = "openai",
+        base_url: Optional[str] = None
     ):
         """
         Initialize LLM agent.
@@ -25,26 +27,63 @@ class LLMAgent(BaseAgent):
             config: Agent configuration
             api_key: API key for LLM provider
             provider: LLM provider ('openai', 'anthropic', 'cohere')
+            base_url: Optional custom base URL (e.g. OpenRouter's
+                'https://openrouter.ai/api/v1' with an 'openai' provider,
+                so any OpenRouter-hosted model works through the same
+                OpenAI-compatible LangChain client)
         """
         super().__init__(config)
         self.api_key = api_key
         self.provider = provider
+        self.base_url = base_url
 
-        # Initialize client based on provider
+        # Initialize LangChain chat model based on provider
         if provider == "openai":
-            self.client = OpenAI(api_key=api_key)
+            self.client = ChatOpenAI(
+                model=config.model_name,
+                api_key=api_key,
+                base_url=base_url,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+            )
         elif provider == "anthropic":
-            self.client = Anthropic(api_key=api_key)
+            self.client = ChatAnthropic(
+                model=config.model_name,
+                api_key=api_key,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+            )
         elif provider == "cohere":
-            self.client = cohere.Client(api_key=api_key)
+            self.client = ChatCohere(
+                model=config.model_name,
+                cohere_api_key=api_key,
+                temperature=config.temperature,
+            )
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
-        logger.info(f"Initialized LLM agent with provider: {provider}")
+        logger.info(f"Initialized LLM agent with provider: {provider} (LangChain)")
+
+    def _build_messages(self) -> List[BaseMessage]:
+        """Build the LangChain message list from system prompt + conversation history."""
+        messages: List[BaseMessage] = []
+
+        if self.config.system_prompt:
+            messages.append(SystemMessage(content=self.config.system_prompt))
+
+        for msg in self.conversation_history:
+            if msg.role == "system":
+                continue
+            if msg.role == "assistant":
+                messages.append(AIMessage(content=msg.content))
+            else:
+                messages.append(HumanMessage(content=msg.content))
+
+        return messages
 
     async def process(self, message: AgentMessage) -> AgentResponse:
         """
-        Process message using LLM.
+        Process message using the configured LangChain chat model.
 
         Args:
             message: Input message
@@ -63,15 +102,9 @@ class LLMAgent(BaseAgent):
             # Add to history
             self.add_to_history(message)
 
-            # Generate response based on provider
-            if self.provider == "openai":
-                response_text = await self._call_openai(message)
-            elif self.provider == "anthropic":
-                response_text = await self._call_anthropic(message)
-            elif self.provider == "cohere":
-                response_text = await self._call_cohere(message)
-            else:
-                raise ValueError(f"Unsupported provider: {self.provider}")
+            langchain_messages = self._build_messages()
+            result = await self.client.ainvoke(langchain_messages)
+            response_text = result.content
 
             # Create response message
             response_message = AgentMessage(
@@ -94,76 +127,6 @@ class LLMAgent(BaseAgent):
                 success=False,
                 error=str(e)
             )
-
-    async def _call_openai(self, message: AgentMessage) -> str:
-        """Call OpenAI API."""
-        messages = []
-
-        # Add system prompt
-        if self.config.system_prompt:
-            messages.append({
-                "role": "system",
-                "content": self.config.system_prompt
-            })
-
-        # Add conversation history
-        for msg in self.conversation_history:
-            messages.append({
-                "role": msg.role,
-                "content": msg.content
-            })
-
-        response = self.client.chat.completions.create(
-            model=self.config.model_name,
-            messages=messages,
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens
-        )
-
-        return response.choices[0].message.content
-
-    async def _call_anthropic(self, message: AgentMessage) -> str:
-        """Call Anthropic API."""
-        messages = []
-
-        # Add conversation history
-        for msg in self.conversation_history:
-            if msg.role != "system":
-                messages.append({
-                    "role": msg.role,
-                    "content": msg.content
-                })
-
-        response = self.client.messages.create(
-            model=self.config.model_name,
-            system=self.config.system_prompt,
-            messages=messages,
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens
-        )
-
-        return response.content[0].text
-
-    async def _call_cohere(self, message: AgentMessage) -> str:
-        """Call Cohere API."""
-        # Build conversation
-        chat_history = []
-        for msg in self.conversation_history[:-1]:  # Exclude current message
-            chat_history.append({
-                "role": "USER" if msg.role == "user" else "CHATBOT",
-                "message": msg.content
-            })
-
-        response = self.client.chat(
-            message=message.content,
-            chat_history=chat_history,
-            preamble=self.config.system_prompt,
-            model=self.config.model_name,
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens
-        )
-
-        return response.text
 
     async def execute_task(self, task: str, context: Optional[Dict[str, Any]] = None) -> AgentResponse:
         """
@@ -204,6 +167,6 @@ class LLMAgent(BaseAgent):
         Returns:
             Approximate token count
         """
-        # Rough estimation: 1 token ≈ 4 characters
+        # Rough estimation: 1 token approx 4 characters
         total_chars = sum(len(msg.content) for msg in self.conversation_history)
         return total_chars // 4
